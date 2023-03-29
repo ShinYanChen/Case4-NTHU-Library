@@ -1,0 +1,5341 @@
+---
+title: "Case4-Code"
+---
+
+
+
+
+
+```{r setup, include = FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+rm(list=ls(all=T))
+
+```
+
+
+
+```{r}
+
+library(ca)
+library(tidyr)
+library(readxl)
+library(ggplot2)
+library(corrplot)
+library(factoextra)
+library(FactoMineR)
+
+setwd('D:/Academic/NTHU/NTHU Practicing Statistics/Case4')
+
+Case4 = as.data.frame( read_excel( "Case4_ver3.xlsx" , sheet = 1 ) )
+
+head(Case4)
+
+```
+
+#Case4 = unique(Case4)
+#write.xlsx(Case4,"Case4.xlsx")
+
+data = Case4[,1:35]
+data = cbind(data,matrix(NA,dim(data)[1],16))
+colnames(data)[36] = as.character("29.\t服務態度良好")
+colnames(data)[37] = "30.\t提供的諮詢服務對我有幫助，如查找圖書、使用電子資源、空間使用說明等"
+colnames(data)[38] = "31.\t需現場處理的讀者問題，能迅速處理"
+colnames(data)[39] = "32.\t需轉介其他單位處理的讀者問題，能迅速轉介、處理並回覆"
+colnames(data)[40] = "33.\t整體來說，我對於圖書館工作人員服務表現感到滿意"
+colnames(data)[41] = "34.\t實體館藏資源易於取得，如擺放位置明顯等"
+colnames(data)[42] = "35.\t空間指示清楚，如空間位置指標等"
+colnames(data)[43] = "36.\t空間動線明確，如圖書區、洗手間等"
+colnames(data)[44] = "37.\t環境舒適整潔"
+colnames(data)[45] = "38.\t整體來說，我對於圖書館的環境感到滿意"
+colnames(data)[46] = "39.\t自助借/還書設備符合我的需求（總圖加列還書設備）"
+colnames(data)[47] = "40.\t公用電腦設備符合我的需求，如查詢館藏、撰寫報告等"
+colnames(data)[48] = "41.\t視聽設備符合我的需求，如耳機、播放器等"
+colnames(data)[49] = "42.\t影列印機、掃描機等符合我的需求"
+colnames(data)[50] = "43.\t無線網路符合我的需求"
+colnames(data)[51] = "44.\t整體來說，我對於圖書館的設施感到滿意"
+
+colnames(Case4)[36:51]
+table(Case4$`28.	請問您最常使用的館別為：（單選）`)
+513 - sum(is.na(Case4$`29.	服務態度良好（總圖書館）`))
+513 - sum(is.na(Case4$`29.	服務態度良好（南大分館）`))
+513 - sum(is.na(Case4$`29.	服務態度良好（人社分館）`))
+
+## 36:51 , 52:67 , 68:83
+
+for ( i in 1:dim(data)[1] ) {
+  if ( !is.na(Case4[i,36]) ) {
+    data[i,36:51] = Case4[i,36:51]
+  } else if ( !is.na(Case4[i,52]) ) {
+    data[i,36:51] = Case4[i,52:67]
+  } else if ( !is.na(Case4[i,68]) ) {
+    data[i,36:51] = Case4[i,68:82]
+  }
+}
+
+# sum(table(data[,50]))
+table(c(Case4$`29.	服務態度良好（總圖書館）`,Case4$`29.	服務態度良好（南大分館）`,Case4$`29.	服務態度良好（人社分館）`))
+table(data$`29.	服務態度良好`)
+
+data = cbind(data,Case4$`45.	我最喜歡的圖書館服務以及理由`,Case4$`46.	我對圖書館的建議`)
+
+head(data)
+
+write.csv(data,"Case4_ver2.csv")
+
+
+
+
+
+### 1.	您的性別
+### 2.	您的身分
+### 3.	您所屬單位
+
+```{r}
+
+table(Case4$`1.	您的性別`   )
+table(Case4$`2.	您的身分`   )
+table(Case4$`3.	您所屬單位` )
+
+```
+
+
+
+## 第一部份：基本資料
+
+### 4.	請問您於近三個月內，平均每月進入圖書館的頻率
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`)
+table(Case4$`2.	您的身分`   ,Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`)
+table(Case4$`3.	您所屬單位` ,Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(4,1,2,3)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 4.近三個月內，平均每月進入圖書館的頻率")
+
+ggsave(filename=paste0("單位 x 4.近三個月內，平均每月進入圖書館的頻率",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+### 5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`)
+table(Case4$`2.	您的身分`   ,Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`)
+table(Case4$`3.	您所屬單位` ,Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(2,3,1,4)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 5.近三個月內，平均每月「使用圖書館網站」的頻率")
+
+ggsave(filename=paste0("單位 x 5.近三個月內，平均每月「使用圖書館網站」的頻率",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+### 6.	請問您最常使用圖書館的哪些服務（可複選）
+
+
+
+table(Case4$`1.	您的性別`   ,Case4$`6.	請問您最常使用圖書館的哪些服務（可複選）`)
+table(Case4$`2.	您的身分`   ,Case4$`6.	請問您最常使用圖書館的哪些服務（可複選）`)
+table(Case4$`3.	您所屬單位` ,Case4$`6.	請問您最常使用圖書館的哪些服務（可複選）`)
+
+
+
+```{r}
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`6.	請問您最常使用圖書館的哪些服務（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`3.	您所屬單位`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i]),] 
+  index[i] = which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(6,1,8,7,4,2,3,9,5)]
+data.ratio = round( data/c(table(Case4$`3.	您所屬單位`)[index]) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",c(table(Case4$`3.	您所屬單位`)[index]),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("單位 x 6.最常使用圖書館的哪些服務（可複選）")
+
+ggsave(filename=paste0("單位 x 6.最常使用圖書館的哪些服務（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`6.	請問您最常使用圖書館的哪些服務（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`)==sort(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`),decreasing = TRUE)[i]),] 
+  index[i] = which(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`)==sort(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[c(4,3,2,1),c(6,1,8,7,4,2,3,9,5)]
+data.ratio = round( data/c(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`)[index]) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",c(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`)[index]),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("單位 x 6.最常使用圖書館的哪些服務（可複選）")
+
+ggsave(filename=paste0("單位 x 6.最常使用圖書館的哪些服務（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+
+
+## 第二部份：服務品質與滿意度
+
+### 實體館藏資源
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`1.	圖書能滿足我的研究、教學或學習需求`)
+table(Case4$`2.	您的身分`   ,Case4$`1.	圖書能滿足我的研究、教學或學習需求`)
+table(Case4$`3.	您所屬單位` ,Case4$`1.	圖書能滿足我的研究、教學或學習需求`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`1.	圖書能滿足我的研究、教學或學習需求`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 1.圖書能滿足我的研究、教學或學習需求")
+
+ggsave(filename=paste0("單位 x 1.圖書能滿足我的研究、教學或學習需求",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`2.	期刊雜誌能滿足我的研究、教學或學習需求`)
+table(Case4$`2.	您的身分`   ,Case4$`2.	期刊雜誌能滿足我的研究、教學或學習需求`)
+table(Case4$`3.	您所屬單位` ,Case4$`2.	期刊雜誌能滿足我的研究、教學或學習需求`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`2.	期刊雜誌能滿足我的研究、教學或學習需求`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 2.期刊雜誌能滿足我的研究、教學或學習需求")
+
+ggsave(filename=paste0("單位 x 2.期刊雜誌能滿足我的研究、教學或學習需求",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`3.	視聽資料能滿足我的研究、教學或學習需求`)
+table(Case4$`2.	您的身分`   ,Case4$`3.	視聽資料能滿足我的研究、教學或學習需求`)
+table(Case4$`3.	您所屬單位` ,Case4$`3.	視聽資料能滿足我的研究、教學或學習需求`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`3.	視聽資料能滿足我的研究、教學或學習需求`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 3.視聽資料能滿足我的研究、教學或學習需求率")
+
+ggsave(filename=paste0("單位 x 3.視聽資料能滿足我的研究、教學或學習需求率",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`4.	實體館藏資源具有新穎性，如出版年份新、新書多等`)
+table(Case4$`2.	您的身分`   ,Case4$`4.	實體館藏資源具有新穎性，如出版年份新、新書多等`)
+table(Case4$`3.	您所屬單位` ,Case4$`4.	實體館藏資源具有新穎性，如出版年份新、新書多等`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`4.	實體館藏資源具有新穎性，如出版年份新、新書多等`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 4.實體館藏資源具有新穎性，如出版年份新、新書多等")
+
+ggsave(filename=paste0("單位 x 4.實體館藏資源具有新穎性，如出版年份新、新書多等",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`5.	整體來說，我對於圖書館的實體館藏資源感到滿意`)
+table(Case4$`2.	您的身分`   ,Case4$`5.	整體來說，我對於圖書館的實體館藏資源感到滿意`)
+table(Case4$`3.	您所屬單位` ,Case4$`5.	整體來說，我對於圖書館的實體館藏資源感到滿意`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`5.	整體來說，我對於圖書館的實體館藏資源感到滿意`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 5.整體來說，我對於圖書館的實體館藏資源感到滿意")
+
+ggsave(filename=paste0("單位 x 5.整體來說，我對於圖書館的實體館藏資源感到滿意",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+### 電子資源
+
+```{r}
+
+table(Case4$`6.	您於近三個月內是否使用過圖書館電子資源？`)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`6.	您於近三個月內是否使用過圖書館電子資源？`)
+table(Case4$`2.	您的身分`   ,Case4$`6.	您於近三個月內是否使用過圖書館電子資源？`)
+table(Case4$`3.	您所屬單位` ,Case4$`6.	您於近三個月內是否使用過圖書館電子資源？`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`6.	您於近三個月內是否使用過圖書館電子資源？`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = c("否","是")
+row.names(data) = row.names(table)[index]
+
+data = data[,c(2,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 6.近三個月內是否使用過圖書館電子資源")
+
+ggsave(filename=paste0("單位 x 6.近三個月內是否使用過圖書館電子資源",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+
+
+table(Case4$`1.	您的性別`   ,Case4$`7.	您未使用過本館電子資源的原因為何？（可複選）`)
+table(Case4$`2.	您的身分`   ,Case4$`7.	您未使用過本館電子資源的原因為何？（可複選）`)
+table(Case4$`3.	您所屬單位` ,Case4$`7.	您未使用過本館電子資源的原因為何？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`3.	您所屬單位` ,Case4$`7.	您未使用過本館電子資源的原因為何？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`7.	您未使用過本館電子資源的原因為何？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`3.	您所屬單位`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i]),] 
+  index[i] = which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(2,1,5,3,4)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("單位 x 7.未使用過本館電子資源的原因為何？（可複選）")
+
+ggsave(filename=paste0("單位 x 7.未使用過本館電子資源的原因為何？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`8.	您於近三個月內，平均每月使用圖書館「電子資源」的頻率`)
+table(Case4$`2.	您的身分`   ,Case4$`8.	您於近三個月內，平均每月使用圖書館「電子資源」的頻率`)
+table(Case4$`3.	您所屬單位` ,Case4$`8.	您於近三個月內，平均每月使用圖書館「電子資源」的頻率`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`8.	您於近三個月內，平均每月使用圖書館「電子資源」的頻率`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(4,1,3,2)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(table),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 8.近三個月內，平均每月使用圖書館「電子資源」的頻率")
+
+ggsave(filename=paste0("單位 x 8.近三個月內，平均每月使用圖書館「電子資源」的頻率",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+
+
+table(Case4$`1.	您的性別`   ,Case4$`9.	您透過那些途徑得知本館電子資源？（可複選）`)
+table(Case4$`2.	您的身分`   ,Case4$`9.	您透過那些途徑得知本館電子資源？（可複選）`)
+table(Case4$`3.	您所屬單位` ,Case4$`9.	您透過那些途徑得知本館電子資源？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`3.	您所屬單位` ,Case4$`9.	您透過那些途徑得知本館電子資源？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`9.	您透過那些途徑得知本館電子資源？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`3.	您所屬單位`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i]),] 
+  index[i] = which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(5,4,8,6,7,9,1,3,2)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("單位 x 9.透過那些途徑得知本館電子資源？（可複選）")
+
+ggsave(filename=paste0("單位 x 9.透過那些途徑得知本館電子資源？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table(Case4$`1.	您的性別`   ,Case4$`10.	您最常使用那些類型的電子資源？（可複選）`)
+table(Case4$`2.	您的身分`   ,Case4$`10.	您最常使用那些類型的電子資源？（可複選）`)
+table(Case4$`3.	您所屬單位` ,Case4$`10.	您最常使用那些類型的電子資源？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`3.	您所屬單位` ,Case4$`10.	您最常使用那些類型的電子資源？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`10.	您最常使用那些類型的電子資源？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`3.	您所屬單位`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i]),] 
+  index[i] = which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(5,3,4,1,2)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("單位 x 10.	您最常使用那些類型的電子資源？（可複選）")
+
+ggsave(filename=paste0("單位 x 10.您最常使用那些類型的電子資源？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table(Case4$`1.	您的性別`   ,Case4$`11.	您使用電子資源遇到的困難包括：（可複選）`)
+table(Case4$`2.	您的身分`   ,Case4$`11.	您使用電子資源遇到的困難包括：（可複選）`)
+table(Case4$`3.	您所屬單位` ,Case4$`11.	您使用電子資源遇到的困難包括：（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`3.	您所屬單位` ,Case4$`11.	您使用電子資源遇到的困難包括：（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`11.	您使用電子資源遇到的困難包括：（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`3.	您所屬單位`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i]),] 
+  index[i] = which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(5,3,6,1,7,2,4)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("單位 x 11.使用電子資源遇到的困難包括：（可複選）")
+
+ggsave(filename=paste0("單位 x 11.使用電子資源遇到的困難包括：（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table(Case4$`1.	您的性別`   ,Case4$`12.	您參加或使用過那些圖書館電子資源利用服務？（可複選）`)
+table(Case4$`2.	您的身分`   ,Case4$`12.	您參加或使用過那些圖書館電子資源利用服務？（可複選）`)
+table(Case4$`3.	您所屬單位` ,Case4$`12.	您參加或使用過那些圖書館電子資源利用服務？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`3.	您所屬單位` ,Case4$`12.	您參加或使用過那些圖書館電子資源利用服務？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`12.	您參加或使用過那些圖書館電子資源利用服務？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`3.	您所屬單位`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i]),] 
+  index[i] = which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(5,4,3,2,1)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("單位 x 12.參加或使用過那些圖書館電子資源利用服務？（可複選）")
+
+ggsave(filename=paste0("單位 x 12.參加或使用過那些圖書館電子資源利用服務？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`13.	圖書館的電子資源利用服務對我有幫助`)
+table(Case4$`2.	您的身分`   ,Case4$`13.	圖書館的電子資源利用服務對我有幫助`)
+table(Case4$`3.	您所屬單位` ,Case4$`13.	圖書館的電子資源利用服務對我有幫助`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`13.	圖書館的電子資源利用服務對我有幫助`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 13.圖書館的電子資源利用服務對我有幫助")
+
+ggsave(filename=paste0("單位 x 13.圖書館的電子資源利用服務對我有幫助",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`14.	整體來說，我對於圖書館的電子資源感到滿意`)
+table(Case4$`2.	您的身分`   ,Case4$`14.	整體來說，我對於圖書館的電子資源感到滿意`)
+table(Case4$`3.	您所屬單位` ,Case4$`14.	整體來說，我對於圖書館的電子資源感到滿意`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`14.	整體來說，我對於圖書館的電子資源感到滿意`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 14.整體來說，我對於圖書館的電子資源感到滿意")
+
+ggsave(filename=paste0("單位 x 14.整體來說，我對於圖書館的電子資源感到滿意",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+### 活動表現
+
+```{r}
+
+table(Case4$`15.	您於近三個月內是否參加過圖書館舉辦之展覽或推廣活動？`)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`15.	您於近三個月內是否參加過圖書館舉辦之展覽或推廣活動？`)
+table(Case4$`2.	您的身分`   ,Case4$`15.	您於近三個月內是否參加過圖書館舉辦之展覽或推廣活動？`)
+table(Case4$`3.	您所屬單位` ,Case4$`15.	您於近三個月內是否參加過圖書館舉辦之展覽或推廣活動？`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`15.	您於近三個月內是否參加過圖書館舉辦之展覽或推廣活動？`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = c("否","是")
+row.names(data) = row.names(table)[index]
+
+data = data[,c(2,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 15.近三個月內是否參加過圖書館舉辦之展覽或推廣活動？")
+
+ggsave(filename=paste0("單位 x 15.近三個月內是否參加過圖書館舉辦之展覽或推廣活動？",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+
+
+table(Case4$`1.	您的性別`   ,Case4$`16.	您參加過圖書館哪一類型活動？（可複選）`)
+table(Case4$`2.	您的身分`   ,Case4$`16.	您參加過圖書館哪一類型活動？（可複選）`)
+table(Case4$`3.	您所屬單位` ,Case4$`16.	您參加過圖書館哪一類型活動？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`3.	您所屬單位` ,Case4$`16.	您參加過圖書館哪一類型活動？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`16.	您參加過圖書館哪一類型活動？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`3.	您所屬單位`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i]),] 
+  index[i] = which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(1,4,2,3,5,6)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("單位 x 16.參加過圖書館哪一類型活動？（可複選）")
+
+ggsave(filename=paste0("單位 x 16.參加過圖書館哪一類型活動？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table(Case4$`1.	您的性別`   ,Case4$`17.	您參加展覽或推廣活動的原因為何？（可複選）`)
+table(Case4$`2.	您的身分`   ,Case4$`17.	您參加展覽或推廣活動的原因為何？（可複選）`)
+table(Case4$`3.	您所屬單位` ,Case4$`17.	您參加展覽或推廣活動的原因為何？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`3.	您所屬單位` ,Case4$`17.	您參加展覽或推廣活動的原因為何？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`17.	您參加展覽或推廣活動的原因為何？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`3.	您所屬單位`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i]),] 
+  index[i] = which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(4,6,1,3,5,2)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("單位 x 17.參加展覽或推廣活動的原因為何？（可複選）")
+
+ggsave(filename=paste0("單位 x 17.參加展覽或推廣活動的原因為何？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table(Case4$`1.	您的性別`   ,Case4$`18.	您未參加過展覽或推廣活動的原因為何？（可複選）`)
+table(Case4$`2.	您的身分`   ,Case4$`18.	您未參加過展覽或推廣活動的原因為何？（可複選）`)
+table(Case4$`3.	您所屬單位` ,Case4$`18.	您未參加過展覽或推廣活動的原因為何？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`3.	您所屬單位` ,Case4$`18.	您未參加過展覽或推廣活動的原因為何？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`18.	您未參加過展覽或推廣活動的原因為何？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`3.	您所屬單位`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i]),] 
+  index[i] = which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(2,5,4,1,3)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("單位 x 18.未參加過展覽或推廣活動的原因為何？（可複選）")
+
+ggsave(filename=paste0("單位 x 18.未參加過展覽或推廣活動的原因為何？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table(Case4$`1.	您的性別`   ,Case4$`19.	您通常從哪些管道獲取本館展覽或推廣活動資訊？（可複選）`)
+table(Case4$`2.	您的身分`   ,Case4$`19.	您通常從哪些管道獲取本館展覽或推廣活動資訊？（可複選）`)
+table(Case4$`3.	您所屬單位` ,Case4$`19.	您通常從哪些管道獲取本館展覽或推廣活動資訊？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`3.	您所屬單位` ,Case4$`19.	您通常從哪些管道獲取本館展覽或推廣活動資訊？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`19.	您通常從哪些管道獲取本館展覽或推廣活動資訊？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`3.	您所屬單位`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i]),] 
+  index[i] = which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(9,8,4,7,5,6,2,1,3)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("單位 x 19.通常從哪些管道獲取本館展覽或推廣活動資訊？（可複選）")
+
+ggsave(filename=paste0("單位 x 19.通常從哪些管道獲取本館展覽或推廣活動資訊？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table(Case4$`1.	您的性別`   ,Case4$`20.	您希望圖書館多舉辦哪一類型活動？（可複選）`)
+table(Case4$`2.	您的身分`   ,Case4$`20.	您希望圖書館多舉辦哪一類型活動？（可複選）`)
+table(Case4$`3.	您所屬單位` ,Case4$`20.	您希望圖書館多舉辦哪一類型活動？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`3.	您所屬單位` ,Case4$`20.	您希望圖書館多舉辦哪一類型活動？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`20.	您希望圖書館多舉辦哪一類型活動？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`3.	您所屬單位`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i]),] 
+  index[i] = which(table(Case4$`3.	您所屬單位`)==sort(table(Case4$`3.	您所屬單位`),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(1,2,4,5,6,3)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("單位 x 20.希望圖書館多舉辦哪一類型活動？（可複選）")
+
+ggsave(filename=paste0("單位 x 20.希望圖書館多舉辦哪一類型活動？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`21.	整體來說，我覺得辦理展覽及推廣活動有助於提升我對圖書館服務的滿意度`)
+table(Case4$`2.	您的身分`   ,Case4$`21.	整體來說，我覺得辦理展覽及推廣活動有助於提升我對圖書館服務的滿意度`)
+table(Case4$`3.	您所屬單位` ,Case4$`21.	整體來說，我覺得辦理展覽及推廣活動有助於提升我對圖書館服務的滿意度`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`21.	整體來說，我覺得辦理展覽及推廣活動有助於提升我對圖書館服務的滿意度`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 21.整體來說，我覺得辦理展覽及推廣活動有助於提升我對圖書館服務的滿意度")
+
+ggsave(filename=paste0("單位 x 21.整體來說，我覺得辦理展覽及推廣活動有助於提升我對圖書館服務的滿意度",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+### 網站介面
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`22.	容易查找實體館藏、電子資源、各項服務說明、最新消息等`)
+table(Case4$`2.	您的身分`   ,Case4$`22.	容易查找實體館藏、電子資源、各項服務說明、最新消息等`)
+table(Case4$`3.	您所屬單位` ,Case4$`22.	容易查找實體館藏、電子資源、各項服務說明、最新消息等`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`22.	容易查找實體館藏、電子資源、各項服務說明、最新消息等`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 22.容易查找實體館藏、電子資源、各項服務說明、最新消息等")
+
+ggsave(filename=paste0("單位 x 22.容易查找實體館藏、電子資源、各項服務說明、最新消息等",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`23.	介面容易使用，如申請校際借還書、申請校際文獻複印傳遞、預約或續借館藏等`)
+table(Case4$`2.	您的身分`   ,Case4$`23.	介面容易使用，如申請校際借還書、申請校際文獻複印傳遞、預約或續借館藏等`)
+table(Case4$`3.	您所屬單位` ,Case4$`23.	介面容易使用，如申請校際借還書、申請校際文獻複印傳遞、預約或續借館藏等`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`23.	介面容易使用，如申請校際借還書、申請校際文獻複印傳遞、預約或續借館藏等`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 23.介面容易使用")
+
+ggsave(filename=paste0("單位 x 23.介面容易使用",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`24.	空間管理系統容易使用，如查詢、預約、刪除空間等`)
+table(Case4$`2.	您的身分`   ,Case4$`24.	空間管理系統容易使用，如查詢、預約、刪除空間等`)
+table(Case4$`3.	您所屬單位` ,Case4$`24.	空間管理系統容易使用，如查詢、預約、刪除空間等`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`24.	空間管理系統容易使用，如查詢、預約、刪除空間等`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 24.空間管理系統容易使用")
+
+ggsave(filename=paste0("單位 x 24.空間管理系統容易使用",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`25.	服務說明及資訊更新迅速`)
+table(Case4$`2.	您的身分`   ,Case4$`25.	服務說明及資訊更新迅速`)
+table(Case4$`3.	您所屬單位` ,Case4$`25.	服務說明及資訊更新迅速`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`25.	服務說明及資訊更新迅速`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 25.服務說明及資訊更新迅速")
+
+ggsave(filename=paste0("單位 x 25.服務說明及資訊更新迅速",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`26.	穩定性高，如回應速度快、不會經常當機等`)
+table(Case4$`2.	您的身分`   ,Case4$`26.	穩定性高，如回應速度快、不會經常當機等`)
+table(Case4$`3.	您所屬單位` ,Case4$`26.	穩定性高，如回應速度快、不會經常當機等`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`26.	穩定性高，如回應速度快、不會經常當機等`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 26.穩定性高，如回應速度快、不會經常當機等")
+
+ggsave(filename=paste0("單位 x 26.穩定性高，如回應速度快、不會經常當機等",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`27.	整體來說，我對於圖書館的網站及介面表現感到滿意`)
+table(Case4$`2.	您的身分`   ,Case4$`27.	整體來說，我對於圖書館的網站及介面表現感到滿意`)
+table(Case4$`3.	您所屬單位` ,Case4$`27.	整體來說，我對於圖書館的網站及介面表現感到滿意`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`27.	整體來說，我對於圖書館的網站及介面表現感到滿意`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 27.整體來說，我對於圖書館的網站及介面表現感到滿意")
+
+ggsave(filename=paste0("單位 x 27.整體來說，我對於圖書館的網站及介面表現感到滿意",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+### Additional
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`28.	請問您最常使用的館別為：（單選）`)
+table(Case4$`2.	您的身分`   ,Case4$`28.	請問您最常使用的館別為：（單選）`)
+table(Case4$`3.	您所屬單位` ,Case4$`28.	請問您最常使用的館別為：（單選）`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`28.	請問您最常使用的館別為：（單選）`))
+data  = matrix(NA,dim(table)[1],dim(table)[2])
+index = c()
+for ( i in 1:dim(table)[1] ) { 
+  data[i,] = table[which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i]),] 
+  index[i] = which(rowSums(table)==sort(rowSums(table),decreasing = TRUE)[i])
+}
+colnames(data)  = colnames(table)
+row.names(data) = row.names(table)[index]
+
+data = data[,c(4,1,2,3)]
+colnames(data)[4] = c("無使用過")
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 28.最常使用館別")
+
+ggsave(filename=paste0("單位 x 28.最常使用館別",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`29.	服務態度良好`)
+table(Case4$`2.	您的身分`   ,Case4$`29.	服務態度良好`)
+table(Case4$`3.	您所屬單位` ,Case4$`29.	服務態度良好`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`29.	服務態度良好`))
+data  = table
+
+data = data[c(2,4,1,7,11,10,5,8,3,9,6,12),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 29.服務態度良好")
+
+ggsave(filename=paste0("單位 x 29.服務態度良好",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`30.	提供的諮詢服務對我有幫助，如查找圖書、使用電子資源、空間使用說明等`)
+table(Case4$`2.	您的身分`   ,Case4$`30.	提供的諮詢服務對我有幫助，如查找圖書、使用電子資源、空間使用說明等`)
+table(Case4$`3.	您所屬單位` ,Case4$`30.	提供的諮詢服務對我有幫助，如查找圖書、使用電子資源、空間使用說明等`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`30.	提供的諮詢服務對我有幫助，如查找圖書、使用電子資源、空間使用說明等`))
+data  = table
+
+data = data[c(2,4,1,7,11,10,5,8,3,9,6,12),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 30.提供的諮詢服務對我有幫助")
+
+ggsave(filename=paste0("單位 x 30.提供的諮詢服務對我有幫助",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`31.	需現場處理的讀者問題，能迅速處理`)
+table(Case4$`2.	您的身分`   ,Case4$`31.	需現場處理的讀者問題，能迅速處理`)
+table(Case4$`3.	您所屬單位` ,Case4$`31.	需現場處理的讀者問題，能迅速處理`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`31.	需現場處理的讀者問題，能迅速處理`))
+data  = table
+
+data = data[c(2,4,1,7,11,10,5,8,3,9,6,12),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 31.需現場處理的讀者問題，能迅速處理")
+
+ggsave(filename=paste0("單位 x 31.需現場處理的讀者問題，能迅速處理",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`32.	需轉介其他單位處理的讀者問題，能迅速轉介、處理並回覆`)
+table(Case4$`2.	您的身分`   ,Case4$`32.	需轉介其他單位處理的讀者問題，能迅速轉介、處理並回覆`)
+table(Case4$`3.	您所屬單位` ,Case4$`32.	需轉介其他單位處理的讀者問題，能迅速轉介、處理並回覆`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`32.	需轉介其他單位處理的讀者問題，能迅速轉介、處理並回覆`))
+data  = table
+
+data = data[c(2,4,1,7,11,10,5,8,3,9,6,12),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 32.需轉介其他單位處理的讀者問題，能迅速轉介、處理並回覆")
+
+ggsave(filename=paste0("單位 x 32.需轉介其他單位處理的讀者問題，能迅速轉介、處理並回覆",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`33.	整體來說，我對於圖書館工作人員服務表現感到滿意`)
+table(Case4$`2.	您的身分`   ,Case4$`33.	整體來說，我對於圖書館工作人員服務表現感到滿意`)
+table(Case4$`3.	您所屬單位` ,Case4$`33.	整體來說，我對於圖書館工作人員服務表現感到滿意`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`33.	整體來說，我對於圖書館工作人員服務表現感到滿意`))
+data  = table
+
+data = data[c(2,4,1,7,11,10,5,8,3,9,6,12),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 33.整體來說，我對於圖書館工作人員服務表現感到滿意")
+
+ggsave(filename=paste0("單位 x 33.整體來說，我對於圖書館工作人員服務表現感到滿意",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`34.	實體館藏資源易於取得，如擺放位置明顯等`)
+table(Case4$`2.	您的身分`   ,Case4$`34.	實體館藏資源易於取得，如擺放位置明顯等`)
+table(Case4$`3.	您所屬單位` ,Case4$`34.	實體館藏資源易於取得，如擺放位置明顯等`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`34.	實體館藏資源易於取得，如擺放位置明顯等`))
+data  = table
+
+data = data[c(2,4,1,7,11,10,5,8,3,9,6,12),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 34.實體館藏資源易於取得，如擺放位置明顯等")
+
+ggsave(filename=paste0("單位 x 34.實體館藏資源易於取得，如擺放位置明顯等",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`35.	空間指示清楚，如空間位置指標等`)
+table(Case4$`2.	您的身分`   ,Case4$`35.	空間指示清楚，如空間位置指標等`)
+table(Case4$`3.	您所屬單位` ,Case4$`35.	空間指示清楚，如空間位置指標等`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`35.	空間指示清楚，如空間位置指標等`))
+data  = table
+
+data = data[c(2,4,1,7,11,10,5,8,3,9,6,12),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 35.空間指示清楚，如空間位置指標等")
+
+ggsave(filename=paste0("單位 x 35.空間指示清楚，如空間位置指標等",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`36.	空間動線明確，如圖書區、洗手間等`)
+table(Case4$`2.	您的身分`   ,Case4$`36.	空間動線明確，如圖書區、洗手間等`)
+table(Case4$`3.	您所屬單位` ,Case4$`36.	空間動線明確，如圖書區、洗手間等`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`36.	空間動線明確，如圖書區、洗手間等`))
+data  = table
+
+data = data[c(2,4,1,7,11,10,5,8,3,9,6,12),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 36.空間動線明確")
+
+ggsave(filename=paste0("單位 x 36.空間動線明確",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`37.	環境舒適整潔`)
+table(Case4$`2.	您的身分`   ,Case4$`37.	環境舒適整潔`)
+table(Case4$`3.	您所屬單位` ,Case4$`37.	環境舒適整潔`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`37.	環境舒適整潔`))
+data  = table
+
+data = data[c(2,4,1,7,11,10,5,8,3,9,6,12),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 37.環境舒適整潔")
+
+ggsave(filename=paste0("單位 x 37.環境舒適整潔",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`38.	整體來說，我對於圖書館的環境感到滿意`)
+table(Case4$`2.	您的身分`   ,Case4$`38.	整體來說，我對於圖書館的環境感到滿意`)
+table(Case4$`3.	您所屬單位` ,Case4$`38.	整體來說，我對於圖書館的環境感到滿意`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`38.	整體來說，我對於圖書館的環境感到滿意`))
+data  = table
+
+data = data[c(2,4,1,7,11,10,5,8,3,9,6,12),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 38.整體來說，我對於圖書館的環境感到滿意")
+
+ggsave(filename=paste0("單位 x 38.整體來說，我對於圖書館的環境感到滿意",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`39.	自助借/還書設備符合我的需求（總圖加列還書設備）`)
+table(Case4$`2.	您的身分`   ,Case4$`39.	自助借/還書設備符合我的需求（總圖加列還書設備）`)
+table(Case4$`3.	您所屬單位` ,Case4$`39.	自助借/還書設備符合我的需求（總圖加列還書設備）`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`39.	自助借/還書設備符合我的需求（總圖加列還書設備）`))
+data  = table
+
+data = data[c(2,4,1,7,11,10,5,8,3,9,6,12),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 39.自助借/還書設備符合我的需求")
+
+ggsave(filename=paste0("單位 x 39.自助借還書設備符合我的需求",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`40.	公用電腦設備符合我的需求，如查詢館藏、撰寫報告等`)
+table(Case4$`2.	您的身分`   ,Case4$`40.	公用電腦設備符合我的需求，如查詢館藏、撰寫報告等`)
+table(Case4$`3.	您所屬單位` ,Case4$`40.	公用電腦設備符合我的需求，如查詢館藏、撰寫報告等`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`40.	公用電腦設備符合我的需求，如查詢館藏、撰寫報告等`))
+data  = table
+
+data = data[c(2,4,1,7,11,10,5,8,3,9,6,12),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 40.公用電腦設備符合我的需求")
+
+ggsave(filename=paste0("單位 x 40.公用電腦設備符合我的需求",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`41.	視聽設備符合我的需求，如耳機、播放器等`)
+table(Case4$`2.	您的身分`   ,Case4$`41.	視聽設備符合我的需求，如耳機、播放器等`)
+table(Case4$`3.	您所屬單位` ,Case4$`41.	視聽設備符合我的需求，如耳機、播放器等`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`41.	視聽設備符合我的需求，如耳機、播放器等`))
+data  = table
+
+data = data[c(2,4,1,7,11,10,5,8,3,9,6,12),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 41.視聽設備符合我的需求")
+
+ggsave(filename=paste0("單位 x 41.視聽設備符合我的需求",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`42.	影列印機、掃描機等符合我的需求`)
+table(Case4$`2.	您的身分`   ,Case4$`42.	影列印機、掃描機等符合我的需求`)
+table(Case4$`3.	您所屬單位` ,Case4$`42.	影列印機、掃描機等符合我的需求`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`42.	影列印機、掃描機等符合我的需求`))
+data  = table
+
+data = data[c(2,4,1,7,11,10,5,8,3,9,6,12),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 42.影列印機、掃描機等符合我的需求")
+
+ggsave(filename=paste0("單位 x 42.影列印機、掃描機等符合我的需求",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`43.	無線網路符合我的需求`)
+table(Case4$`2.	您的身分`   ,Case4$`43.	無線網路符合我的需求`)
+table(Case4$`3.	您所屬單位` ,Case4$`43.	無線網路符合我的需求`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`43.	無線網路符合我的需求`))
+data  = table
+
+data = data[c(2,4,1,7,11,10,5,8,3,9,6,12),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 43.無線網路符合我的需求")
+
+ggsave(filename=paste0("單位 x 43.無線網路符合我的需求",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`1.	您的性別`   ,Case4$`44.	整體來說，我對於圖書館的設施感到滿意`)
+table(Case4$`2.	您的身分`   ,Case4$`44.	整體來說，我對於圖書館的設施感到滿意`)
+table(Case4$`3.	您所屬單位` ,Case4$`44.	整體來說，我對於圖書館的設施感到滿意`)
+
+
+
+table = as.matrix(table(Case4$`3.	您所屬單位` ,Case4$`44.	整體來說，我對於圖書館的設施感到滿意`))
+data  = table
+
+data = data[c(2,4,1,7,11,10,5,8,3,9,6,12),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("單位 x 44.整體來說，我對於圖書館的設施感到滿意")
+
+ggsave(filename=paste0("單位 x 44.整體來說，我對於圖書館的設施感到滿意",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+
+
+## 第三部份：跨面向交叉分析
+
+### 使用圖書館頻率
+
+##### 實體館藏資源
+
+```{r}
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`1.	圖書能滿足我的研究、教學或學習需求`)
+
+table = as.matrix(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`1.	圖書能滿足我的研究、教學或學習需求`))
+
+data = table[c(4,1,2,3),c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 1.圖書能滿足我的研究、教學或學習需求")
+
+ggsave(filename=paste0("使用圖書館頻率 x 1.圖書能滿足我的研究、教學或學習需求",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`2.	期刊雜誌能滿足我的研究、教學或學習需求`)
+
+table = as.matrix(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`2.	期刊雜誌能滿足我的研究、教學或學習需求`))
+
+data = table[c(4,1,2,3),c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 2.期刊雜誌能滿足我的研究、教學或學習需求")
+
+ggsave(filename=paste0("使用圖書館頻率 x 2.期刊雜誌能滿足我的研究、教學或學習需求",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+
+```
+
+```{r}
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`3.	視聽資料能滿足我的研究、教學或學習需求`)
+
+table = as.matrix(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`3.	視聽資料能滿足我的研究、教學或學習需求`))
+
+data = table[c(4,1,2,3),c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 3.視聽資料能滿足我的研究、教學或學習需求")
+
+ggsave(filename=paste0("使用圖書館頻率 x 3.視聽資料能滿足我的研究、教學或學習需求",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`4.	實體館藏資源具有新穎性，如出版年份新、新書多等`)
+
+table = as.matrix(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`4.	實體館藏資源具有新穎性，如出版年份新、新書多等`))
+
+data = table[c(4,1,2,3),c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 4.實體館藏資源具有新穎性")
+
+ggsave(filename=paste0("使用圖書館頻率 x 4.實體館藏資源具有新穎性",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`5.	整體來說，我對於圖書館的實體館藏資源感到滿意`)
+
+table = as.matrix(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`5.	整體來說，我對於圖書館的實體館藏資源感到滿意`))
+
+data = table[c(4,1,2,3),c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 5.整體來說，我對於圖書館的實體館藏資源感到滿意")
+
+ggsave(filename=paste0("使用圖書館頻率 x 5.整體來說，我對於圖書館的實體館藏資源感到滿意",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+##### 電子資源
+
+```{r}
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`6.	您於近三個月內是否使用過圖書館電子資源？`)
+
+table = as.matrix(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`6.	您於近三個月內是否使用過圖書館電子資源？`))
+
+data = table[c(4,1,2,3),c(2,1)]
+colnames(data) = c("是","否")
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 6.近三個月內是否使用過圖書館電子資源？")
+
+ggsave(filename=paste0("使用圖書館頻率 x 6.近三個月內是否使用過圖書館電子資源？",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`7.	您未使用過本館電子資源的原因為何？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`7.	您未使用過本館電子資源的原因為何？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`7.	您未使用過本館電子資源的原因為何？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(4,1,2,3)
+data = table[index,c(2,1,5,3,4)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("使用圖書館頻率 x 7.未使用過本館電子資源的原因為何？（可複選）")
+
+ggsave(filename=paste0("使用圖書館頻率 x 7.未使用過本館電子資源的原因為何？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+```{r}
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`8.	您於近三個月內，平均每月使用圖書館「電子資源」的頻率`)
+
+table = as.matrix(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`8.	您於近三個月內，平均每月使用圖書館「電子資源」的頻率`))
+
+data = table[c(4,1,2,3),c(4,1,2,3)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 8.您於近三個月內，平均每月使用圖書館「電子資源」的頻率")
+
+ggsave(filename=paste0("使用圖書館頻率 x 8.您於近三個月內，平均每月使用圖書館「電子資源」的頻率",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`9.	您透過那些途徑得知本館電子資源？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`9.	您透過那些途徑得知本館電子資源？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`9.	您透過那些途徑得知本館電子資源？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(4,1,2,3)
+data = table[index,c(5,4,8,6,7,9,1,3,2)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("使用圖書館頻率 x 9.透過那些途徑得知本館電子資源？（可複選）")
+
+ggsave(filename=paste0("使用圖書館頻率 x 9.透過那些途徑得知本館電子資源？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`10.	您最常使用那些類型的電子資源？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`10.	您最常使用那些類型的電子資源？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`10.	您最常使用那些類型的電子資源？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(4,1,2,3)
+data = table[index,c(5,3,4,1,2)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("使用圖書館頻率 x 10.最常使用那些類型的電子資源？（可複選）")
+
+ggsave(filename=paste0("使用圖書館頻率 x 10.最常使用那些類型的電子資源？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`11.	您使用電子資源遇到的困難包括：（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`11.	您使用電子資源遇到的困難包括：（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`11.	您使用電子資源遇到的困難包括：（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(4,1,2,3)
+data = table[index,c(5,3,6,1,7,2,4)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("使用圖書館頻率 x 11.使用電子資源遇到的困難包括：（可複選）")
+
+ggsave(filename=paste0("使用圖書館頻率 x 11.使用電子資源遇到的困難包括：（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`12.	您參加或使用過那些圖書館電子資源利用服務？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`12.	您參加或使用過那些圖書館電子資源利用服務？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`12.	您參加或使用過那些圖書館電子資源利用服務？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(4,1,2,3)
+data = table[index,c(5,4,3,2,1)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("使用圖書館頻率 x 12.參加或使用過那些圖書館電子資源利用服務？（可複選）")
+
+ggsave(filename=paste0("使用圖書館頻率 x 12.參加或使用過那些圖書館電子資源利用服務？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+```{r}
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`13.	圖書館的電子資源利用服務對我有幫助`)
+
+table = as.matrix(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`13.	圖書館的電子資源利用服務對我有幫助`))
+
+data = table[c(4,1,2,3),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 13.圖書館的電子資源利用服務對我有幫助")
+
+ggsave(filename=paste0("使用圖書館頻率 x 13.圖書館的電子資源利用服務對我有幫助",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`14.	整體來說，我對於圖書館的電子資源感到滿意`)
+
+table = as.matrix(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`14.	整體來說，我對於圖書館的電子資源感到滿意`))
+
+data = table[c(4,1,2,3),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 14.整體來說，我對於圖書館的電子資源感到滿意")
+
+ggsave(filename=paste0("使用圖書館頻率 x 14.整體來說，我對於圖書館的電子資源感到滿意",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+##### 活動表現
+
+```{r}
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`15.	您於近三個月內是否參加過圖書館舉辦之展覽或推廣活動？`)
+
+table = as.matrix(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`15.	您於近三個月內是否參加過圖書館舉辦之展覽或推廣活動？`))
+
+data = table[c(4,1,2,3),c(2,1)]
+colnames(data) = c("是","否")
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 15.近三個月內是否參加過圖書館舉辦之展覽或推廣活動？")
+
+ggsave(filename=paste0("使用圖書館頻率 x 15.近三個月內是否參加過圖書館舉辦之展覽或推廣活動？",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`16.	您參加過圖書館哪一類型活動？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`16.	您參加過圖書館哪一類型活動？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`16.	您參加過圖書館哪一類型活動？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(4,1,2,3)
+data = table[index,c(1,4,2,3,5,6)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("使用圖書館頻率 x 16.參加過圖書館哪一類型活動？（可複選）")
+
+ggsave(filename=paste0("使用圖書館頻率 x 16.參加過圖書館哪一類型活動？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`17.	您參加展覽或推廣活動的原因為何？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`17.	您參加展覽或推廣活動的原因為何？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`17.	您參加展覽或推廣活動的原因為何？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(4,1,2,3)
+data = table[index,c(4,6,1,3,5,2)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("使用圖書館頻率 x 17.參加展覽或推廣活動的原因為何？（可複選）")
+
+ggsave(filename=paste0("使用圖書館頻率 x 17.參加展覽或推廣活動的原因為何？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`18.	您未參加過展覽或推廣活動的原因為何？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`18.	您未參加過展覽或推廣活動的原因為何？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`18.	您未參加過展覽或推廣活動的原因為何？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(4,1,2,3)
+data = table[index,c(2,5,4,1,3)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("使用圖書館頻率 x 18.未參加過展覽或推廣活動的原因為何？（可複選）")
+
+ggsave(filename=paste0("使用圖書館頻率 x 18.未參加過展覽或推廣活動的原因為何？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`19.	您通常從哪些管道獲取本館展覽或推廣活動資訊？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`19.	您通常從哪些管道獲取本館展覽或推廣活動資訊？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`19.	您通常從哪些管道獲取本館展覽或推廣活動資訊？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(4,1,2,3)
+data = table[index,c(9,8,4,7,5,6,2,1,3)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("使用圖書館頻率 x 19.通常從哪些管道獲取本館展覽或推廣活動資訊？（可複選）")
+
+ggsave(filename=paste0("使用圖書館頻率 x 19.通常從哪些管道獲取本館展覽或推廣活動資訊？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`20.	您希望圖書館多舉辦哪一類型活動？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`20.	您希望圖書館多舉辦哪一類型活動？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`20.	您希望圖書館多舉辦哪一類型活動？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(4,1,2,3)
+data = table[index,c(1,2,4,5,6,3)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("使用圖書館頻率 x 20.希望圖書館多舉辦哪一類型活動？（可複選）")
+
+ggsave(filename=paste0("使用圖書館頻率 x 20.希望圖書館多舉辦哪一類型活動？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+```{r}
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`21.	整體來說，我覺得辦理展覽及推廣活動有助於提升我對圖書館服務的滿意度`)
+
+table = as.matrix(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`21.	整體來說，我覺得辦理展覽及推廣活動有助於提升我對圖書館服務的滿意度`))
+
+data = table[c(4,1,2,3),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 21.整體來說，我覺得辦理展覽及推廣活動有助於提升我對圖書館服務的滿意度")
+
+ggsave(filename=paste0("使用圖書館頻率 x 21.整體來說，我覺得辦理展覽及推廣活動有助於提升我對圖書館服務的滿意度",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+##### 網站介面
+
+```{r}
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`22.	容易查找實體館藏、電子資源、各項服務說明、最新消息等`)
+
+table = as.matrix(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`22.	容易查找實體館藏、電子資源、各項服務說明、最新消息等`))
+
+data = table[c(4,1,2,3),c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 22.容易查找實體館藏、電子資源、各項服務說明、最新消息等")
+
+ggsave(filename=paste0("使用圖書館頻率 x 22.容易查找實體館藏、電子資源、各項服務說明、最新消息等",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`23.	介面容易使用，如申請校際借還書、申請校際文獻複印傳遞、預約或續借館藏等`)
+
+table = as.matrix(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`23.	介面容易使用，如申請校際借還書、申請校際文獻複印傳遞、預約或續借館藏等`))
+
+data = table[c(4,1,2,3),c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 23.介面容易使用")
+
+ggsave(filename=paste0("使用圖書館頻率 x 23.介面容易使用",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`24.	空間管理系統容易使用，如查詢、預約、刪除空間等`)
+
+table = as.matrix(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`24.	空間管理系統容易使用，如查詢、預約、刪除空間等`))
+
+data = table[c(4,1,2,3),c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 24.空間管理系統容易使用")
+
+ggsave(filename=paste0("使用圖書館頻率 x 24.空間管理系統容易使用",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`25.	服務說明及資訊更新迅速`)
+
+table = as.matrix(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`25.	服務說明及資訊更新迅速`))
+
+data = table[c(4,1,2,3),c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 25.服務說明及資訊更新迅速")
+
+ggsave(filename=paste0("使用圖書館頻率 x 25.服務說明及資訊更新迅速",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`26.	穩定性高，如回應速度快、不會經常當機等`)
+
+table = as.matrix(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`26.	穩定性高，如回應速度快、不會經常當機等`))
+
+data = table[c(4,1,2,3),c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 26.穩定性高，如回應速度快、不會經常當機等")
+
+ggsave(filename=paste0("使用圖書館頻率 x 26.穩定性高，如回應速度快、不會經常當機等",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`27.	整體來說，我對於圖書館的網站及介面表現感到滿意`)
+
+table = as.matrix(table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`27.	整體來說，我對於圖書館的網站及介面表現感到滿意`))
+
+data = table[c(4,1,2,3),c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 27.整體來說，我對於圖書館的網站及介面表現感到滿意")
+
+ggsave(filename=paste0("使用圖書館頻率 x 27.整體來說，我對於圖書館的網站及介面表現感到滿意",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+
+### 使用圖書館網站頻率
+
+##### 電子資源
+
+```{r}
+
+table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`6.	您於近三個月內是否使用過圖書館電子資源？`)
+
+table = as.matrix(table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`6.	您於近三個月內是否使用過圖書館電子資源？`))
+
+data = table[c(2,3,1,4),c(2,1)]
+colnames(data) = c("是","否")
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館網站頻率 x 6.近三個月內是否使用過圖書館電子資源？")
+
+ggsave(filename=paste0("使用圖書館網站頻率 x 6.近三個月內是否使用過圖書館電子資源？",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+
+
+table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`7.	您未使用過本館電子資源的原因為何？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`7.	您未使用過本館電子資源的原因為何？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`7.	您未使用過本館電子資源的原因為何？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(2,3,1,4)
+data = table[index,c(2,1,5,3,4)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("使用圖書館網站頻率 x 7.未使用過本館電子資源的原因為何？（可複選）")
+
+ggsave(filename=paste0("使用圖書館網站頻率 x 7.未使用過本館電子資源的原因為何？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+```{r}
+
+table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`8.	您於近三個月內，平均每月使用圖書館「電子資源」的頻率`)
+
+table = as.matrix(table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`8.	您於近三個月內，平均每月使用圖書館「電子資源」的頻率`))
+
+data = table[c(2,3,1,4),c(4,1,3,2)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館網站頻率 x 8.近三個月內，平均每月使用圖書館「電子資源」的頻率")
+
+ggsave(filename=paste0("使用圖書館網站頻率 x 8.近三個月內，平均每月使用圖書館「電子資源」的頻率",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+
+
+table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`9.	您透過那些途徑得知本館電子資源？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`9.	您透過那些途徑得知本館電子資源？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`9.	您透過那些途徑得知本館電子資源？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(2,3,1,4)
+data = table[index,c(5,4,8,6,7,9,1,3,2)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("使用圖書館網站頻率 x 9.透過那些途徑得知本館電子資源？（可複選）")
+
+ggsave(filename=paste0("使用圖書館網站頻率 x 9.透過那些途徑得知本館電子資源？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`10.	您最常使用那些類型的電子資源？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`10.	您最常使用那些類型的電子資源？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`10.	您最常使用那些類型的電子資源？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(2,3,1,4)
+data = table[index,c(5,3,4,1,2)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("使用圖書館網站頻率 x 10.最常使用那些類型的電子資源？（可複選）")
+
+ggsave(filename=paste0("使用圖書館網站頻率 x 10.最常使用那些類型的電子資源？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`11.	您使用電子資源遇到的困難包括：（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`11.	您使用電子資源遇到的困難包括：（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`11.	您使用電子資源遇到的困難包括：（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(2,3,1,4)
+data = table[index,c(5,3,6,1,7,2,4)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("使用圖書館網站頻率 x 11.使用電子資源遇到的困難包括：（可複選）")
+
+ggsave(filename=paste0("使用圖書館網站頻率 x 11.使用電子資源遇到的困難包括：（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+
+
+table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`12.	您參加或使用過那些圖書館電子資源利用服務？（可複選）`)
+
+
+
+```{r}
+
+temp = rowSums(table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`12.	您參加或使用過那些圖書館電子資源利用服務？（可複選）`))
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`12.	您參加或使用過那些圖書館電子資源利用服務？（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(2,3,1,4)
+data = table[index,c(5,4,3,2,1)]
+data.ratio = round( data/temp[index] , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  coord_cartesian(ylim=c(0,(max(data.ratio)*1.25))) +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",temp[index],")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  facet_grid(rows = vars(factor(y,levels=colnames(data)))) + 
+  theme(strip.text.y = element_blank()) +
+  ggtitle("使用圖書館網站頻率 x 12.參加或使用過那些圖書館電子資源利用服務？（可複選）")
+
+ggsave(filename=paste0("使用圖書館網站頻率 x 12.參加或使用過那些圖書館電子資源利用服務？（可複選）",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=8,width=14)
+
+```
+
+```{r}
+
+table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`13.	圖書館的電子資源利用服務對我有幫助`)
+
+table = as.matrix(table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`13.	圖書館的電子資源利用服務對我有幫助`))
+
+data = table[c(2,3,1,4),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館網站頻率 x 13.圖書館的電子資源利用服務對我有幫助")
+
+ggsave(filename=paste0("使用圖書館網站頻率 x 13.圖書館的電子資源利用服務對我有幫助",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`14.	整體來說，我對於圖書館的電子資源感到滿意`)
+
+table = as.matrix(table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`14.	整體來說，我對於圖書館的電子資源感到滿意`))
+
+data = table[c(2,3,1,4),c(3,5,2,4,1)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館網站頻率 x 14.整體來說，我對於圖書館的電子資源感到滿意")
+
+ggsave(filename=paste0("使用圖書館網站頻率 x 14.整體來說，我對於圖書館的電子資源感到滿意",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+##### 網站介面
+
+```{r}
+
+table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`22.	容易查找實體館藏、電子資源、各項服務說明、最新消息等`)
+
+table = as.matrix(table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`22.	容易查找實體館藏、電子資源、各項服務說明、最新消息等`))
+
+data = table[c(2,3,1,4),c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館頻率 x 22.容易查找實體館藏、電子資源、各項服務說明、最新消息等")
+
+ggsave(filename=paste0("使用圖書館頻率 x 22.容易查找實體館藏、電子資源、各項服務說明、最新消息等",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`23.	介面容易使用，如申請校際借還書、申請校際文獻複印傳遞、預約或續借館藏等`)
+
+table = as.matrix(table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`23.	介面容易使用，如申請校際借還書、申請校際文獻複印傳遞、預約或續借館藏等`))
+
+data = table[c(2,3,1,4),c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館網站頻率 x 23.介面容易使用")
+
+ggsave(filename=paste0("使用圖書館網站頻率 x 23.介面容易使用",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`24.	空間管理系統容易使用，如查詢、預約、刪除空間等`)
+
+table = as.matrix(table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`24.	空間管理系統容易使用，如查詢、預約、刪除空間等`))
+
+data = table[c(2,3,1,4),c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館網站頻率 x 24.空間管理系統容易使用")
+
+ggsave(filename=paste0("使用圖書館網站頻率 x 24.空間管理系統容易使用",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`25.	服務說明及資訊更新迅速`)
+
+table = as.matrix(table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`25.	服務說明及資訊更新迅速`))
+
+data = table[c(2,3,1,4),c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館網站頻率 x 25.服務說明及資訊更新迅速")
+
+ggsave(filename=paste0("使用圖書館網站頻率 x 25.服務說明及資訊更新迅速",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`26.	穩定性高，如回應速度快、不會經常當機等`)
+
+table = as.matrix(table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`26.	穩定性高，如回應速度快、不會經常當機等`))
+
+data = table[c(2,3,1,4),c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館網站頻率 x 26.穩定性高")
+
+ggsave(filename=paste0("使用圖書館網站頻率 x 26.穩定性高",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+```{r}
+
+table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`27.	整體來說，我對於圖書館的網站及介面表現感到滿意`)
+
+table = as.matrix(table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`27.	整體來說，我對於圖書館的網站及介面表現感到滿意`))
+
+data = table[c(2,3,1,4),c(3,5,2,4,1,6)]
+data.ratio = round( data/rowSums(data) , 2 )
+
+frame = data.frame(
+  x = rep(row.names(data),times = dim(data)[2]),
+  y = rep( colnames(data), each = dim(data)[1]),
+  count = c(data),
+  ratio = c(data.ratio)
+)
+
+
+ggplot( frame[,-3] , aes(x=x,y=ratio,fill=y) ) + 
+  geom_bar( position = "dodge" , stat = "identity" , aes(fill=factor(frame$y,levels = colnames(data))) ) + 
+  xlab("") + 
+  ylab("Ratio") + 
+  theme_minimal() +
+  geom_text(aes(label=paste0(ratio*100,"%"),fill=factor(frame$y,levels = colnames(data))) , position = position_dodge(0.9) , vjust = -0.5) + 
+  labs(fill="") + 
+  scale_x_discrete(labels = paste0(row.names(data),"\n","(",rowSums(data),")"),limits = row.names(data)) + 
+  scale_fill_discrete(labels = colnames(data),limits = colnames(data)) + 
+  ggtitle("使用圖書館網站頻率 x 27.整體來說，我對於圖書館的網站及介面表現感到滿意")
+
+ggsave(filename=paste0("使用圖書館網站頻率 x 27.整體來說，我對於圖書館的網站及介面表現感到滿意",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/Plot",height=6,width=12)
+
+```
+
+
+### 館別服務表現
+
+```{r}
+
+table(Case4$`28.	請問您最常使用的館別為：（單選）`)
+
+```
+
+##### 工作人員服務表現
+
+```{r}
+
+table(Case4$`29.	服務態度良好（總圖書館）`)
+table(Case4$`29.	服務態度良好（南大分館）`)
+table(Case4$`29.	服務態度良好（人社分館）`)
+
+```
+
+```{r}
+
+table(Case4$`30.	提供的諮詢服務對我有幫助，如查找圖書、使用電子資源、空間使用說明等（總圖書館）`)
+table(Case4$`30.	提供的諮詢服務對我有幫助，如查找圖書、使用電子資源、空間使用說明等（南大分館）`)
+table(Case4$`30.	提供的諮詢服務對我有幫助，如查找圖書、使用電子資源、空間使用說明等（人社分館）`)
+
+```
+
+```{r}
+
+table(Case4$`31.	需現場處理的讀者問題，能迅速處理（總圖書館）`)
+table(Case4$`31.	需現場處理的讀者問題，能迅速處理（南大分館）`)
+table(Case4$`31.	需現場處理的讀者問題，能迅速處理（人社分館）`)
+
+```
+
+```{r}
+
+table(Case4$`32.	需轉介其他單位處理的讀者問題，能迅速轉介、處理並回覆（總圖書館）`)
+table(Case4$`32.	需轉介其他單位處理的讀者問題，能迅速轉介、處理並回覆（南大分館）`)
+table(Case4$`32.	需轉介其他單位處理的讀者問題，能迅速轉介、處理並回覆（人社分館）`)
+
+```
+
+```{r}
+
+table(Case4$`33.	整體來說，我對於總圖書館工作人員服務表現感到滿意（總圖書館）`)
+table(Case4$`33.	整體來說，我對於工作人員服務表現感到滿意（南大分館）`)
+table(Case4$`33.	整體來說，我對於人社分館工作人員服務表現感到滿意（人社分館）`)
+
+```
+
+##### 環境：閱覽空間、洗手間、影列印間等
+
+```{r}
+
+table(Case4$`34.	實體館藏資源易於取得，如擺放位置明顯等（總圖書館）`)
+table(Case4$`34.	實體館藏資源易於取得，如擺放位置明顯等（南大分館）`)
+table(Case4$`34.	實體館藏資源易於取得，如擺放位置明顯等（人社分館）`)
+
+```
+
+```{r}
+
+table(Case4$`35.	空間指示清楚，如空間位置指標等（總圖書館）`)
+table(Case4$`35.	空間指示清楚，如空間位置指標等（南大分館）`)
+table(Case4$`35.	空間指示清楚，如空間位置指標等（人社分館）`)
+
+```
+
+```{r}
+
+table(Case4$`36.	空間動線明確，如圖書區、洗手間等（總圖書館）`)
+table(Case4$`36.	空間動線明確，如圖書區、洗手間等（南大分館）`)
+table(Case4$`36.	空間動線明確，如圖書區、洗手間等（人社分館）`)
+
+```
+
+```{r}
+
+table(Case4$`37.	環境舒適整潔（總圖書館）`)
+table(Case4$`37.	環境舒適整潔（南大分館）`)
+table(Case4$`37.	環境舒適整潔（人社分館）`)
+
+```
+
+```{r}
+
+table(Case4$`38.	整體來說，我對於總圖書館的環境感到滿意（總圖書館）`)
+table(Case4$`38.	整體來說，我對於南大分館的環境感到滿意（南大分館）`)
+table(Case4$`38.	整體來說，我對於人社分館的環境感到滿意（人社分館）`)
+
+```
+
+##### 設施：設備、機器、無線網路
+
+```{r}
+
+table(Case4$`39.	自助借/還書設備符合我的需求（總圖書館）`)
+table(Case4$`39.	自助借/還書設備符合我的需求（南大分館）`)
+table(Case4$`39.	自助借/還書設備符合我的需求（人社分館）`)
+
+```
+
+```{r}
+
+table(Case4$`40.	公用電腦設備符合我的需求，如查詢館藏、撰寫報告等（總圖書館）`)
+table(Case4$`40.	公用電腦設備符合我的需求，如查詢館藏、撰寫報告等（南大分館）`)
+table(Case4$`40.	公用電腦設備符合我的需求，如查詢館藏、撰寫報告等（人社分館）`)
+
+```
+
+```{r}
+
+table(Case4$`41.	視聽設備符合我的需求，如耳機、播放器等（總圖書館）`)
+table(Case4$`41.	視聽設備符合我的需求，如耳機、播放器等（南大分館）`)
+table(Case4$`41.	視聽設備符合我的需求，如耳機、播放器等（人社分館）`)
+
+```
+
+```{r}
+
+table(Case4$`42.	影列印機、掃描機等符合我的需求（總圖書館）`)
+table(Case4$`42.	影列印機、掃描機等符合我的需求（南大分館）`)
+table(Case4$`42.	影列印機、掃描機等符合我的需求（人社分館）`)
+
+```
+
+```{r}
+
+table(Case4$`43.	無線網路符合我的需求（總圖書館）`)
+table(Case4$`43.	無線網路符合我的需求（南大分館）`)
+table(Case4$`43.	無線網路符合我的需求（人社分館）`)
+
+```
+
+```{r}
+
+table(Case4$`44.	整體來說，我對於總圖書館的設施感到滿意（總圖書館）`)
+table(Case4$`44.	整體來說，我對於南大分館的設施感到滿意（南大分館）`)
+table(Case4$`44.	整體來說，我對於人社分館的設施感到滿意（人社分館）`)
+
+```
+
+
+
+
+
+
+
+
+
+
+## 第一部份：基本資料
+
+### 不同性別、身分、單位讀者使用圖書館頻率差異
+
+```{r}
+
+table = table(Case4$`1.	您的性別`,Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`)
+
+data = table[,c(4,1,2,3)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+```
+
+```{r}
+
+table = table(Case4$`2.	您的身分`,Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`)
+
+data = table[,c(4,1,2,3)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("不同身分讀者使用圖書館頻率差異")
+
+ggsave(filename=paste0("不同身分讀者使用圖書館頻率差異",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+```{r}
+
+table = table(Case4$`3.	您所屬單位`,Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`)
+
+data = table[,c(4,1,2,3)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("不同單位讀者使用圖書館頻率差異")
+
+ggsave(filename=paste0("不同單位讀者使用圖書館頻率差異",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+
+
+### 不同性別、身分、單位讀者使用圖書館網站頻率差異
+
+```{r}
+
+table = table(Case4$`1.	您的性別`,Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`)
+
+data = table[,c(2,3,1,4)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+```
+
+```{r}
+
+table = table(Case4$`2.	您的身分`,Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`)
+
+data = table[,c(2,3,1,4)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("不同身分讀者使用圖書館頻率頻率差異")
+
+ggsave(filename=paste0("不同身分讀者使用圖書館頻率頻率差異",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+```{r}
+
+table = table(Case4$`3.	您所屬單位`,Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`)
+
+data = table[,c(2,3,1,4)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("不同單位讀者使用圖書館頻率頻率差異")
+
+ggsave(filename=paste0("不同單位讀者使用圖書館頻率頻率差異",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+
+
+### 不同性別、身分、單位讀者使用圖書館服務項目差異
+
+```{r}
+
+table(Case4$`1.	您的性別`)
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`6.	請問您最常使用圖書館的哪些服務（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`1.	您的性別`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(9,6,7,8,5,2,3,4,1)
+for ( i in 1:dim(table)[2] ) {
+  data = cbind(table[,index[i]],table(Case4$`1.	您的性別`)-table[,index[i]])
+  print(data)
+  temp = data / rowSums(data)
+  corrplot(temp,title = colnames(table)[index[i]])
+  print(chisq.test(data))
+}
+
+```
+
+```{r}
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`6.	請問您最常使用圖書館的哪些服務（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`2.	您的身分`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(9,6,7,8,2,3,4,1,5)
+for ( i in 1:dim(table)[2] ) {
+  data = cbind(table[,index[i]],table(Case4$`2.	您的身分`)-table[,index[i]])
+  print(data)
+  temp = data / rowSums(data)
+  corrplot(temp,title = colnames(table)[index[i]])
+  print(chisq.test(data))
+}
+
+```
+
+```{r}
+
+table.x = c()
+table.y = c()
+index = 0
+trans = gsub("\r\r\r\r","\r\n",Case4$`6.	請問您最常使用圖書館的哪些服務（可複選）`)
+
+for ( i in 1:dim(Case4)[1] ) {
+  if ( length(strsplit(trans[i],"\r\n\r\n")[[1]]) == 0 ) {
+    index = index
+  } else {
+    for ( j in 1:length(strsplit(trans[i],"\r\n\r\n")[[1]]) ) {
+      table.x[index+j] = Case4$`3.	您所屬單位`[i]
+      table.y[index+j] = (strsplit(trans[i],"\r\n\r\n")[[1]])[j]
+    }
+    index = index + length(strsplit(trans[i],"\r\n\r\n")[[1]])
+  }
+}
+
+table = table(data.frame(table.x,table.y))
+
+index = c(9,6,7,8,2,3,4,1,5)
+for ( i in 1:dim(table)[2] ) {
+  data = cbind(table[,index[i]],table(Case4$`3.	您所屬單位`)-table[,index[i]])
+  print(data)
+  temp = data / rowSums(data)
+  corrplot(temp,title = colnames(table)[index[i]])
+  print(chisq.test(data))
+}
+
+
+```
+
+
+
+
+
+## 第二部份：服務品質與滿意度
+
+
+### 不同性別、身分、單位讀者使用實體館藏資源滿意度
+
+```{r}
+
+table = table(Case4$`1.	您的性別`,Case4$`5.	整體來說，我對於圖書館的實體館藏資源感到滿意`)
+
+data = table[,c(3,5,2,4,1,6)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+```
+
+```{r}
+
+table = table(Case4$`2.	您的身分`,Case4$`5.	整體來說，我對於圖書館的實體館藏資源感到滿意`)
+
+data = table[,c(3,5,2,4,1,6)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("不同身分讀者使用實體館藏資源滿意度")
+
+ggsave(filename=paste0("不同身分讀者使用實體館藏資源滿意度",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+```{r}
+
+table = table(Case4$`3.	您所屬單位`,Case4$`5.	整體來說，我對於圖書館的實體館藏資源感到滿意`)
+
+data = table[,c(3,5,2,4,1,6)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("不同單位讀者使用實體館藏資源滿意度")
+
+ggsave(filename=paste0("不同單位讀者使用實體館藏資源滿意度",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+
+
+### 不同性別、身分、單位讀者使用電子資源情形及滿意度
+
+```{r}
+
+table = table(Case4$`1.	您的性別`,Case4$`14.	整體來說，我對於圖書館的電子資源感到滿意`)
+
+data = table[,c(3,5,2,4,1)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+```
+
+```{r}
+
+table = table(Case4$`2.	您的身分`,Case4$`14.	整體來說，我對於圖書館的電子資源感到滿意`)
+
+data = table[,c(3,5,2,4,1)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("不同身分讀者使用電子資源情形及滿意度")
+
+ggsave(filename=paste0("不同身分讀者使用電子資源情形及滿意度",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+```{r}
+
+table = table(Case4$`3.	您所屬單位`,Case4$`14.	整體來說，我對於圖書館的電子資源感到滿意`)
+
+data = table[,c(3,5,2,4,1)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("不同單位讀者使用電子資源情形及滿意度")
+
+ggsave(filename=paste0("不同單位讀者使用電子資源情形及滿意度",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+
+
+### 不同性別、身分、單位讀者參加圖書館活動情形及滿意度
+
+```{r}
+
+table = table(Case4$`1.	您的性別`,Case4$`21.	整體來說，我覺得辦理展覽及推廣活動有助於提升我對圖書館服務的滿意度`)
+
+data = table[,c(3,5,2,4,1)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+```
+
+```{r}
+
+table = table(Case4$`2.	您的身分`,Case4$`21.	整體來說，我覺得辦理展覽及推廣活動有助於提升我對圖書館服務的滿意度`)
+
+data = table[,c(3,5,2,4,1)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("不同身分讀者參加圖書館活動情形及滿意度")
+
+ggsave(filename=paste0("不同身分讀者參加圖書館活動情形及滿意度",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+```{r}
+
+table = table(Case4$`3.	您所屬單位`,Case4$`21.	整體來說，我覺得辦理展覽及推廣活動有助於提升我對圖書館服務的滿意度`)
+
+data = table[,c(3,5,2,4,1)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("不同單位讀者參加圖書館活動情形及滿意度")
+
+ggsave(filename=paste0("不同單位讀者參加圖書館活動情形及滿意度",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+
+
+### 不同性別、身分、單位讀者對網站介面表現滿意度
+
+```{r}
+
+table = table(Case4$`1.	您的性別`,Case4$`27.	整體來說，我對於圖書館的網站及介面表現感到滿意`)
+
+data = table[,c(3,5,2,4,1,6)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+```
+
+```{r}
+
+table = table(Case4$`2.	您的身分`,Case4$`27.	整體來說，我對於圖書館的網站及介面表現感到滿意`)
+
+data = table[,c(3,5,2,4,1,6)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("不同身分讀者對網站介面表現滿意度")
+
+ggsave(filename=paste0("不同身分讀者對網站介面表現滿意度",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+```{r}
+
+table = table(Case4$`3.	您所屬單位`,Case4$`27.	整體來說，我對於圖書館的網站及介面表現感到滿意`)
+
+data = table[,c(3,5,2,4,1,6)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("不同單位讀者對網站介面表現滿意度")
+
+ggsave(filename=paste0("不同單位讀者對網站介面表現滿意度",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+
+
+
+
+## 第三部份：跨面向交叉分析
+
+### 讀者使用圖書館頻率與使用實體館藏資源滿意度顯著性分析
+
+```{r}
+
+table = table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`5.	整體來說，我對於圖書館的實體館藏資源感到滿意`)
+
+data = table[c(4,1,2,3),c(3,5,2,4,1,6)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("讀者使用圖書館頻率與使用實體館藏資源滿意度顯著性分析")
+
+ggsave(filename=paste0("讀者使用圖書館頻率與使用實體館藏資源滿意度顯著性分析",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+
+
+### 讀者使用圖書館頻率與使用電子資源滿意度顯著性分析
+
+```{r}
+
+table = table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`14.	整體來說，我對於圖書館的電子資源感到滿意`)
+
+data = table[c(4,1,2,3),c(3,5,2,4,1)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("讀者使用圖書館頻率與使用電子資源滿意度顯著性分析")
+
+ggsave(filename=paste0("讀者使用圖書館頻率與使用電子資源滿意度顯著性分析",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+
+
+### 讀者使用圖書館頻率與對圖書館活動表現滿意度顯著性分析
+
+```{r}
+
+table = table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`21.	整體來說，我覺得辦理展覽及推廣活動有助於提升我對圖書館服務的滿意度`)
+
+data = table[c(4,1,2,3),c(3,5,2,4,1)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("讀者使用圖書館頻率與對圖書館活動表現滿意度顯著性分析")
+
+ggsave(filename=paste0("讀者使用圖書館頻率與對圖書館活動表現滿意度顯著性分析",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+
+
+### 讀者使用圖書館頻率與使用網站介面滿意度顯著性分析
+
+```{r}
+
+table = table(Case4$`4.	請問您於近三個月內，平均每月進入圖書館的頻率`,Case4$`27.	整體來說，我對於圖書館的網站及介面表現感到滿意`)
+
+data = table[c(4,1,2,3),c(3,5,2,4,1,6)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("讀者使用圖書館頻率與使用網站介面滿意度顯著性分析")
+
+ggsave(filename=paste0("讀者使用圖書館頻率與使用網站介面滿意度顯著性分析",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+
+
+### 讀者使用圖書館網站頻率與使用電子資源滿意度顯著性分析
+
+```{r}
+
+table = table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`14.	整體來說，我對於圖書館的電子資源感到滿意`)
+
+data = table[c(2,3,1,4),c(3,5,2,4,1)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("讀者使用圖書館網站頻率與使用電子資源滿意度顯著性分析")
+
+ggsave(filename=paste0("讀者使用圖書館網站頻率與使用電子資源滿意度顯著性分析",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+
+
+### 讀者使用圖書館網站頻率與使用網站介面滿意度顯著性分析
+
+```{r}
+
+table = table(Case4$`5.	請問您於近三個月內，平均每月「使用圖書館網站」的頻率`,Case4$`27.	整體來說，我對於圖書館的網站及介面表現感到滿意`)
+
+data = table[c(2,3,1,4),c(3,5,2,4,1,6)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("讀者使用圖書館網站頻率與使用網站介面滿意度顯著性分析")
+
+ggsave(filename=paste0("讀者使用圖書館網站頻率與使用網站介面滿意度顯著性分析",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+
+
+### 經常使用總館、人社分館、南大分館讀者對該館工作人員服務表現滿意度顯著性分析
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`33.	整體來說，我對於圖書館工作人員服務表現感到滿意`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+data = table[c(3,2,1),c(3,5,2,4,1)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("經常使用總館、人社分館、南大分館讀者對該館工作人員服務表現滿意度顯著性分析")
+
+ggsave(filename=paste0("經常使用總館、人社分館、南大分館讀者對該館工作人員服務表現滿意度顯著性分析",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+
+
+### 經常使用總館、人社分館、南大分館讀者對該館環境表現滿意度顯著性分析
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`38.	整體來說，我對於圖書館的環境感到滿意`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+data = table[c(3,2,1),c(3,5,2,4,1)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("經常使用總館、人社分館、南大分館讀者對該館環境表現滿意度顯著性分析")
+
+ggsave(filename=paste0("經常使用總館、人社分館、南大分館讀者對該館環境表現滿意度顯著性分析",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+
+
+### 經常使用總館、人社分館、南大分館讀者對該館設施表現滿意度顯著性分析
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`44.	整體來說，我對於圖書館的設施感到滿意`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+data = table[c(3,2,1),c(3,5,2,4,1)]
+data = data / rowSums(data)
+corrplot(data,is.corr=FALSE)
+
+chisq.test(table)
+
+CA  = CA( table , graph = F )
+(eig = get_eigenvalue(CA))
+
+fviz_screeplot(CA, addlabels = TRUE)
+fviz_ca_biplot(CA, repel = TRUE, arrow = c(FALSE, TRUE)) + ggtitle("經常使用總館、人社分館、南大分館讀者對該館設施表現滿意度顯著性分析")
+
+ggsave(filename=paste0("經常使用總館、人社分館、南大分館讀者對該館設施表現滿意度顯著性分析",".png"),
+       path="C:/Academic/NTHU Practicing Statistics/Case4/CA",height=5,width=5)
+
+```
+
+
+
+## 三館 p-value
+
+### 29
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`29.	服務態度良好`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+chisq.test(table)
+
+```
+
+### 30
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`30.	提供的諮詢服務對我有幫助，如查找圖書、使用電子資源、空間使用說明等`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+chisq.test(table)
+
+```
+
+### 31
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`31.	需現場處理的讀者問題，能迅速處理`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+chisq.test(table)
+
+```
+
+### 32
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`32.	需轉介其他單位處理的讀者問題，能迅速轉介、處理並回覆`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+chisq.test(table)
+
+```
+
+### 33
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`33.	整體來說，我對於圖書館工作人員服務表現感到滿意`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+chisq.test(table)
+
+```
+
+### 34
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`34.	實體館藏資源易於取得，如擺放位置明顯等`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+chisq.test(table)
+
+```
+
+### 35
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`35.	空間指示清楚，如空間位置指標等`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+chisq.test(table)
+
+```
+
+### 36
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`36.	空間動線明確，如圖書區、洗手間等`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+chisq.test(table)
+
+```
+
+### 37
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`37.	環境舒適整潔`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+chisq.test(table)
+
+```
+
+### 38
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`38.	整體來說，我對於圖書館的環境感到滿意`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+chisq.test(table)
+
+```
+
+### 39
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`39.	自助借/還書設備符合我的需求（總圖加列還書設備）`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+chisq.test(table)
+
+```
+
+### 40
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`40.	公用電腦設備符合我的需求，如查詢館藏、撰寫報告等`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+chisq.test(table)
+
+```
+
+### 41
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`41.	視聽設備符合我的需求，如耳機、播放器等`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+chisq.test(table)
+
+```
+
+### 42
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`42.	影列印機、掃描機等符合我的需求`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+chisq.test(table)
+
+```
+
+### 43
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`43.	無線網路符合我的需求`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+chisq.test(table)
+
+```
+
+### 44
+
+```{r}
+
+table = table(Case4$`28.	請問您最常使用的館別為：（單選）`,Case4$`44.	整體來說，我對於圖書館的設施感到滿意`)
+table = table[-c(which(row.names(table) == "無使用過（跳答第三部份：您的喜好與建議）")),]
+
+chisq.test(table)
+
+```
+
+
